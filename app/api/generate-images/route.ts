@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/store";
+import { db } from "@/lib/db";
 import { generateId } from "@/lib/auth";
 import { getCurrentUser, publicUser } from "@/lib/session";
 import { parseSize, generateImageUrl } from "@/lib/utils";
+import { saveReferenceImage } from "@/lib/storage";
+import { rateLimit, getClientIP, RATE_LIMITS } from "@/lib/rateLimit";
 import type { GeneratedImage, ReferenceImage, Message } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
@@ -10,6 +12,15 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "认证失败。" }, { status: 401 });
+    }
+
+    const ip = getClientIP(req);
+    const rl = rateLimit(`generate:${ip}`, RATE_LIMITS.generate.max, RATE_LIMITS.generate.window);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "生成请求过于频繁，请稍后再试。" },
+        { status: 429 }
+      );
     }
 
     const formData = await req.formData();
@@ -55,15 +66,15 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < referenceFiles.length; i++) {
       const file = referenceFiles[i];
       const buffer = Buffer.from(await file.arrayBuffer());
-      const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
+      const saved = saveReferenceImage(buffer, file.type || "image/png");
       referenceImages.push({
-        id: generateId("refq_"),
+        id: saved.id,
         messageId: "",
-        imageData: base64,
+        imageData: saved.url,
         name: file.name,
         label: refLabels[i] || `参考图${i + 1}`,
         createdAt: new Date().toISOString(),
-        mimeType: file.type,
+        mimeType: file.type || "image/png",
         indexInMessage: i,
       });
     }

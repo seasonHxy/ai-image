@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/store";
+import { db } from "@/lib/db";
 import {
   hashPassword,
   generateId,
@@ -8,6 +8,7 @@ import {
   validatePassword,
 } from "@/lib/auth";
 import { setSessionCookie, publicUser } from "@/lib/session";
+import { rateLimit, getClientIP, RATE_LIMITS } from "@/lib/rateLimit";
 import {
   FREE_SIGNUP_CREDITS,
   INVITE_CREDITS,
@@ -16,6 +17,15 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIP(req);
+    const rl = rateLimit(`register:${ip}`, RATE_LIMITS.register.max, RATE_LIMITS.register.window);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "注册操作过于频繁，请稍后再试。" },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { email, password, nickname, code, inviteCode } = body;
 

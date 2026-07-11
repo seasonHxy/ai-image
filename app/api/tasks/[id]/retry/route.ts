@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/store";
+import { db } from "@/lib/db";
 import { generateId } from "@/lib/auth";
 import { getCurrentUser, publicUser } from "@/lib/session";
 import { parseSize, generateImageUrl } from "@/lib/utils";

@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { db } from "./store";
+import { db } from "./db";
 import { getSessionCookieName, getSessionMaxAge } from "./auth";
 import type { User, PublicUser } from "./types";
 
